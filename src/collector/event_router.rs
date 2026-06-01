@@ -3,6 +3,7 @@ use crate::collector::models::{
     decimal_to_f64, json_array_of_levels, DeltaRow, MarketRow, SnapshotRow, TradeRow, WsLevel,
 };
 use chrono::{DateTime, TimeZone, Utc};
+use polymarket_client_sdk_v2::clob::types::Side as TradeSide;
 use polymarket_client_sdk_v2::clob::ws::types::response::{
     BookUpdate, LastTradePrice, MarketResolved, OrderBookLevel, PriceChange,
 };
@@ -11,13 +12,20 @@ use std::str::FromStr;
 use tokio::sync::mpsc;
 use tracing::warn;
 
-pub fn side_for(asset_id: &str, market: &MarketRow) -> &'static str {
+/// Map a WS event's asset_id to the market's yes/no side.
+///
+/// This should be infallible at runtime: we only subscribe to the two token IDs
+/// we own (`token_id_yes` and `token_id_no`), so an unknown asset_id means a
+/// programming error or a corrupted event from the WS. We log + return an
+/// `Option` so the caller can decide to drop the event rather than silently
+/// mislabel it.
+pub fn side_for(asset_id: &str, market: &MarketRow) -> Option<&'static str> {
     if asset_id == market.token_id_yes {
-        "yes"
+        Some("yes")
     } else if asset_id == market.token_id_no {
-        "no"
+        Some("no")
     } else {
-        "yes"
+        None
     }
 }
 
@@ -40,10 +48,10 @@ fn levels_to_value(levels: &[OrderBookLevel]) -> serde_json::Value {
     json_array_of_levels(&mapped)
 }
 
-pub fn on_book(market: &MarketRow, book: &BookUpdate) -> Event {
+pub fn on_book(market: &MarketRow, book: &BookUpdate) -> Option<Event> {
     let asset_id = asset_id_to_string(book.asset_id);
-    let side = side_for(&asset_id, market);
-    Event::Snapshot(SnapshotRow {
+    let side = side_for(&asset_id, market)?;
+    Some(Event::Snapshot(SnapshotRow {
         market_id: market.id,
         asset_id,
         side: side.to_owned(),
@@ -51,38 +59,46 @@ pub fn on_book(market: &MarketRow, book: &BookUpdate) -> Event {
         asks: levels_to_value(&book.asks),
         hash: book.hash.clone(),
         ts_exchange: ts_ms_to_dt(book.timestamp),
-    })
+    }))
 }
 
 pub fn on_price_change(market: &MarketRow, pc: &PriceChange) -> Vec<Event> {
-    pc.price_changes
-        .iter()
-        .map(|entry| {
-            let asset_id = asset_id_to_string(entry.asset_id);
-            let side = side_for(&asset_id, market);
-            let new_size = entry.size.as_ref().and_then(decimal_to_f64).unwrap_or(0.0);
-            let price = decimal_to_f64(&entry.price).unwrap_or(0.0);
-            Event::Delta(DeltaRow {
-                market_id: market.id,
-                asset_id,
-                side: side.to_owned(),
-                price,
-                new_size,
-                best_bid: entry.best_bid.as_ref().and_then(decimal_to_f64),
-                best_ask: entry.best_ask.as_ref().and_then(decimal_to_f64),
-                hash: entry.hash.clone(),
-                ts_exchange: ts_ms_to_dt(pc.timestamp),
-            })
-        })
-        .collect()
+    let mut out = Vec::with_capacity(pc.price_changes.len());
+    for entry in &pc.price_changes {
+        let asset_id = asset_id_to_string(entry.asset_id);
+        let Some(side) = side_for(&asset_id, market) else {
+            warn!(
+                market_id = %market.id,
+                asset_id = %asset_id,
+                "dropping price_change: asset_id matches neither token_yes nor token_no"
+            );
+            continue;
+        };
+        let new_size = entry.size.as_ref().and_then(decimal_to_f64).unwrap_or(0.0);
+        let price = decimal_to_f64(&entry.price).unwrap_or(0.0);
+        out.push(Event::Delta(DeltaRow {
+            market_id: market.id,
+            asset_id,
+            side: side.to_owned(),
+            price,
+            new_size,
+            best_bid: entry.best_bid.as_ref().and_then(decimal_to_f64),
+            best_ask: entry.best_ask.as_ref().and_then(decimal_to_f64),
+            hash: entry.hash.clone(),
+            ts_exchange: ts_ms_to_dt(pc.timestamp),
+        }));
+    }
+    out
 }
 
 pub fn on_trade(market: &MarketRow, tr: &LastTradePrice) -> Event {
     let asset_id = asset_id_to_string(tr.asset_id);
-    let side_str = match tr.side.as_ref().map(|s| format!("{s:?}").to_lowercase()) {
-        Some(v) if v.contains("buy") => "buy",
-        Some(v) if v.contains("sell") => "sell",
-        _ => "unknown",
+    let side_str = match tr.side {
+        Some(TradeSide::Buy) => "buy",
+        Some(TradeSide::Sell) => "sell",
+        Some(TradeSide::Unknown) | None => "unknown",
+        // `Side` is `#[non_exhaustive]`; treat any future variant as unknown.
+        Some(_) => "unknown",
     };
     Event::Trade(TradeRow {
         market_id: market.id,

@@ -91,7 +91,7 @@ pub async fn run_rtds(
         let syms = binance_syms.clone();
         let tx2 = tx.clone();
         tokio::spawn(async move {
-            let mut s = match client2.subscribe_crypto_prices(Some(syms)) {
+            let s = match client2.subscribe_crypto_prices(Some(syms)) {
                 Ok(s) => s,
                 Err(e) => { error!(error = %e, "subscribe binance"); return; }
             };
@@ -123,7 +123,7 @@ pub async fn run_rtds(
         let sym = s_sym.clone();
         let tx2 = tx.clone();
         tokio::spawn(async move {
-            let mut s = match client2.subscribe_chainlink_prices(Some(sym)) {
+            let s = match client2.subscribe_chainlink_prices(Some(sym)) {
                 Ok(s) => s,
                 Err(e) => { error!(error = %e, "subscribe chainlink"); return; }
             };

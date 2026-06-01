@@ -42,8 +42,7 @@ pub async fn run(
         let assets2 = assets.clone();
         let tx2 = evt_tx.clone();
         tokio::spawn(async move {
-            #[allow(unused_mut)]
-            let mut s = match client2.subscribe_orderbook(assets2) {
+            let s = match client2.subscribe_orderbook(assets2) {
                 Ok(s) => s,
                 Err(e) => { error!(error = %e, "subscribe orderbook"); return; }
             };
@@ -61,7 +60,7 @@ pub async fn run(
         let assets2 = assets.clone();
         let tx2 = evt_tx.clone();
         tokio::spawn(async move {
-            let mut s = match client2.subscribe_prices(assets2) {
+            let s = match client2.subscribe_prices(assets2) {
                 Ok(s) => s,
                 Err(e) => { error!(error = %e, "subscribe prices"); return; }
             };
@@ -79,7 +78,7 @@ pub async fn run(
         let assets2 = assets.clone();
         let tx2 = evt_tx.clone();
         tokio::spawn(async move {
-            let mut s = match client2.subscribe_last_trade_price(assets2) {
+            let s = match client2.subscribe_last_trade_price(assets2) {
                 Ok(s) => s,
                 Err(e) => { error!(error = %e, "subscribe last_trade_price"); return; }
             };
@@ -97,7 +96,7 @@ pub async fn run(
         let assets2 = assets.clone();
         let tx2 = evt_tx.clone();
         tokio::spawn(async move {
-            let mut s = match client2.subscribe_market_resolutions(assets2) {
+            let s = match client2.subscribe_market_resolutions(assets2) {
                 Ok(s) => s,
                 Err(e) => { error!(error = %e, "subscribe market_resolutions"); return; }
             };
@@ -142,7 +141,9 @@ pub async fn run(
         };
         match event {
             WsEvent::Book(b) => {
-                event_router::send_one(&tx, event_router::on_book(&market, &b));
+                if let Some(ev) = event_router::on_book(&market, &b) {
+                    event_router::send_one(&tx, ev);
+                }
             }
             WsEvent::Prices(p) => {
                 event_router::send_all(&tx, event_router::on_price_change(&market, &p));

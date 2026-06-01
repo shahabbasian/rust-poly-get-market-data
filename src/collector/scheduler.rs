@@ -76,8 +76,6 @@ async fn poll_due(
         WHERE status = 'upcoming'
           AND start_date IS NOT NULL
           AND start_date <= now() + make_interval(secs => $1)
-          AND token_id_yes IS NOT NULL
-          AND token_id_no  IS NOT NULL
         ORDER BY start_date ASC
         LIMIT 50
         "#,
