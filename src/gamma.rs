@@ -62,7 +62,7 @@ impl GammaClient {
     pub async fn fetch_all_active_markets_for_series(
         &self,
         series_slugs: &[ String ],
-        limit: i32,
+        _limit: i32,
     ) -> Result<Vec<PolymarketMarket>> {
         let mut all = Vec::new();
         for slug in series_slugs {

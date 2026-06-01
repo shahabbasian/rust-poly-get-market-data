@@ -48,7 +48,7 @@ impl WsClient {
         shutdown: &mut tokio::sync::watch::Receiver<bool>,
     ) -> Result<()> {
         let url = Url::parse(WS_URL).context("Invalid WS URL")?;
-        let (ws_stream, _) = connect_async(&url).await.context("Failed to connect WS")?;
+        let (ws_stream, _) = connect_async(url.as_str()).await.context("Failed to connect WS")?;
         let (mut write, mut read) = ws_stream.split();
 
         // Subscribe with empty assets_ids but custom_feature_enabled to receive new_market and market_resolved
@@ -138,10 +138,10 @@ impl WsClient {
                     let _ = db.insert_discovery_log(None, "ws_market_resolved", "websocket", Some(serde_json::Value::String(text.to_string()))).await;
                 }
             }
-            WsMarketEvent::Book { asset_id, bids, asks, timestamp, .. } => {
+            WsMarketEvent::Book { asset_id, bids, asks, timestamp: _, .. } => {
                 tracing::debug!("WS book for asset_id={} bids={} asks={}", asset_id, bids.len(), asks.len());
             }
-            WsMarketEvent::PriceChange { market, price_changes, timestamp } => {
+            WsMarketEvent::PriceChange { market, price_changes, timestamp: _ } => {
                 tracing::debug!("WS price_change market={} changes={}", market, price_changes.len());
             }
             WsMarketEvent::TickSizeChange { asset_id, old_tick_size, new_tick_size, .. } => {
