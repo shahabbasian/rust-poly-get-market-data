@@ -13,6 +13,40 @@ services:
       - default
       - supabase-net
 
+  collector:
+    build: .
+    container_name: polymarket-collector
+    restart: unless-stopped
+    command: ["collector"]
+    env_file:
+      - .env
+    environment:
+      - RUST_LOG=${RUST_LOG:-info,polymarket_client_sdk_v2=info}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - scanner
+    networks:
+      - default
+      - supabase-net
+
+  price_sampler:
+    build: .
+    container_name: polymarket-price-sampler
+    restart: unless-stopped
+    command: ["price_sampler"]
+    env_file:
+      - .env
+    environment:
+      - RUST_LOG=${RUST_LOG:-info,polymarket_client_sdk_v2=info}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - scanner
+    networks:
+      - default
+      - supabase-net
+
 networks:
   supabase-net:
     external: true

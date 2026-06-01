@@ -1,12 +1,7 @@
-mod config;
-mod db;
-mod gamma_client;
-mod market_repo;
-mod models;
-mod scanner;
-mod slug;
-
 use anyhow::Result;
+use polymarket_scanner::config;
+use polymarket_scanner::db;
+use polymarket_scanner::scanner;
 use tokio::time::{interval, Duration};
 use tracing::{error, info};
 
