@@ -9,3 +9,11 @@ services:
       - RUST_LOG=${RUST_LOG:-info}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - supabase-net
+
+networks:
+  supabase-net:
+    external: true
+    name: btlyefmo9beepazzx2jt10dz
