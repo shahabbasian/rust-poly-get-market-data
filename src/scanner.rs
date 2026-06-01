@@ -31,7 +31,7 @@ pub async fn run_scan(
     for (slug, symbol, interval, _full_name) in &slugs {
         match gamma.get_market_by_slug(slug).await {
             Ok(Some(market)) => {
-                let token_ids = parse_clob_token_ids(market.clob_token_ids.as_deref());
+                let token_ids = parse_clob_token_ids(market.clob_token_ids.as_ref());
                 let start_date = parse_optional_datetime(market.start_date.as_deref());
                 let end_date = parse_optional_datetime(market.end_date.as_deref());
 

@@ -3,7 +3,7 @@ use reqwest::Client as HttpClient;
 use tracing::debug;
 
 use crate::config::Config;
-use crate::models::{ClobTokenIds, GammaMarketResponse};
+use crate::models::GammaMarketResponse;
 
 #[derive(Debug, Clone)]
 pub struct GammaClient {
@@ -38,18 +38,15 @@ impl GammaClient {
     }
 }
 
-pub fn parse_clob_token_ids(raw: Option<&str>) -> ClobTokenIds {
-    let raw = match raw {
-        Some(s) => s,
-        None => return ClobTokenIds::default(),
+pub fn parse_clob_token_ids(raw: Option<&Vec<String>>) -> crate::models::ClobTokenIds {
+    let parts = match raw {
+        Some(v) => v.as_slice(),
+        None => return crate::models::ClobTokenIds::default(),
     };
 
-    let trimmed = raw.trim_matches('"').trim_matches('\'');
-    let parts: Vec<&str> = trimmed.split(',').map(|s| s.trim().trim_matches('"').trim_matches('\'')).collect();
-
-    ClobTokenIds {
-        yes: parts.first().map(|s| s.to_string()),
-        no: parts.get(1).map(|s| s.to_string()),
+    crate::models::ClobTokenIds {
+        yes: parts.first().cloned(),
+        no: parts.get(1).cloned(),
     }
 }
 

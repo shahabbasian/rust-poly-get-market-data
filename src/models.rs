@@ -61,7 +61,7 @@ pub struct GammaMarketResponse {
     pub ready: Option<bool>,
     pub funded: Option<bool>,
     #[serde(rename = "clobTokenIds")]
-    pub clob_token_ids: Option<String>,
+    pub clob_token_ids: Option<Vec<String>>,
     #[serde(rename = "orderMinSize")]
     pub order_min_size: Option<f64>,
     #[serde(rename = "orderPriceMinTickSize")]

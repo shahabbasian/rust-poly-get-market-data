@@ -7,7 +7,7 @@ pub fn short_slug(symbol: &str, interval: &str, epoch_ts: i64) -> String {
 }
 
 pub fn hourly_slug(full_name: &str, naive_et: NaiveDateTime) -> String {
-    let month = naive_et.format("%b").to_string().to_lowercase();
+    let month = naive_et.format("%B").to_string().to_lowercase();
     let day = naive_et.day();
     let year_num = naive_et.year();
     let hour24 = naive_et.hour();
