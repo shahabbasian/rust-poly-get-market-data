@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - default
+      - supabase-net
+
+networks:
+  supabase-net:
+    external: true
+    name: btlyefmo9beepazzx2jt10dz
+
