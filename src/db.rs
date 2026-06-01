@@ -214,7 +214,7 @@ impl Db {
         &self,
     ) -> Result<Vec<(i32, String, String, String)>> {
         let rows = sqlx::query(
-            "SELECT id, series_slug, asset_symbol, interval FROM new_target_series ORDER BY id"
+            "SELECT id, series_slug, asset_symbol, interval FROM new_target_series WHERE enabled = true ORDER BY id"
         )
         .fetch_all(&self.pool)
         .await
@@ -228,6 +228,68 @@ impl Db {
                 row.try_get::<String, _>("asset_symbol")?,
                 row.try_get::<String, _>("interval")?,
             ));
+        }
+        Ok(result)
+    }
+
+    pub async fn upsert_target_series(
+        &self,
+        series_slug: &str,
+        asset_symbol: &str,
+        interval: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO new_target_series (series_slug, asset_symbol, interval, enabled, auto_detected)
+            VALUES ($1, $2, $3, true, true)
+            ON CONFLICT (series_slug) DO UPDATE SET
+                asset_symbol = EXCLUDED.asset_symbol,
+                interval = EXCLUDED.interval,
+                enabled = true,
+                auto_detected = true
+            "#
+        )
+        .bind(series_slug)
+        .bind(asset_symbol)
+        .bind(interval)
+        .execute(&self.pool)
+        .await
+        .context("Failed to upsert target series")?;
+        Ok(())
+    }
+
+    pub async fn disable_missing_target_series(
+        &self,
+        known_slugs: &[String],
+    ) -> Result<u64> {
+        let rows = sqlx::query(
+            r#"
+            UPDATE new_target_series
+            SET enabled = false
+            WHERE enabled = true
+              AND NOT (series_slug = ANY($1))
+            "#
+        )
+        .bind(known_slugs)
+        .execute(&self.pool)
+        .await
+        .context("Failed to disable missing target series")?;
+        Ok(rows.rows_affected())
+    }
+
+    pub async fn list_all_target_series_slugs(
+        &self,
+    ) -> Result<Vec<String>> {
+        let rows = sqlx::query(
+            "SELECT series_slug FROM new_target_series"
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context("Failed to list all target series slugs")?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.try_get::<String, _>("series_slug")?);
         }
         Ok(result)
     }

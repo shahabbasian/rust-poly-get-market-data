@@ -1,7 +1,7 @@
 use polymarket_market_discovery::config::Config;
 use polymarket_market_discovery::db::Db;
 use polymarket_market_discovery::gamma::GammaClient;
-use polymarket_market_discovery::models::{MarketUpsertData, PolymarketEvent, PolymarketMarket};
+use polymarket_market_discovery::models::MarketUpsertData;
 use tracing_subscriber::EnvFilter;
 
 fn parse_json_array_string(s: &Option<String>) -> Option<Vec<String>> {
@@ -31,13 +31,44 @@ async fn main() -> anyhow::Result<()> {
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
     let db_ws = db.clone();
-    let ws_handle = tokio::spawn(async move {
+    let _ws_handle = tokio::spawn(async move {
         if let Err(e) = polymarket_market_discovery::ws::WsClient::run(db_ws, shutdown_rx, config.ws_reconnect_secs).await {
             tracing::error!("WS runner exited: {}", e);
         }
     });
 
     let gamma = GammaClient::new();
+
+    // ── Auto-discovery: find all Up or Down series on Gamma and keep target table in sync ──
+    tracing::info!("Running series auto-discovery...");
+    match gamma.discover_updown_series().await {
+        Ok(discovered) => {
+            for (slug, asset, interval) in &discovered {
+                if let Err(e) = db.upsert_target_series(slug, asset, interval).await {
+                    tracing::error!("Failed to upsert target series {}: {}", slug, e);
+                } else {
+                    tracing::info!(
+                        "Discovered series: {} (asset={}, interval={})",
+                        slug,
+                        asset,
+                        interval
+                    );
+                }
+            }
+            let slugs: Vec<String> = discovered.into_iter().map(|(s, _, _)| s).collect();
+            match db.disable_missing_target_series(&slugs).await {
+                Ok(count) => {
+                    if count > 0 {
+                        tracing::info!("Disabled {} stale auto-detected series", count);
+                    }
+                }
+                Err(e) => tracing::error!("Failed to disable stale series: {}", e),
+            }
+        }
+        Err(e) => {
+            tracing::error!("Series auto-discovery failed: {}", e);
+        }
+    }
 
     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(config.poll_interval_secs));
 
@@ -59,16 +90,14 @@ async fn main() -> anyhow::Result<()> {
         match gamma.fetch_all_active_markets_for_series(&slugs, 500).await {
             Ok(markets) => {
                 tracing::info!("Fetched {} markets", markets.len());
-                for market in markets {
-                    // Determine series_slug / asset_symbol / interval from event metadata
-                    let event = market.event.as_ref();
-                    let series_slug = event.and_then(|e| e.seriesSlug.clone());
-                    let event_slug = event.map(|e| e.slug.clone());
+                for (series_slug, market) in markets {
+                    // The series endpoint returns each market paired with its series slug,
+                    // so we can look up asset_symbol and interval directly.
+                    let event_slug = market.event.as_ref().map(|e| e.slug.clone());
 
-                    // Try to map asset_symbol and interval from target_series known config
                     let (asset_symbol, interval) = series
                         .iter()
-                        .find(|(_, slug, _, _)| series_slug.as_ref() == Some(slug))
+                        .find(|(_, slug, _, _)| slug == &series_slug)
                         .map(|(_, _, sym, int)| (Some(sym.clone()), Some(int.clone())))
                         .unwrap_or((None, None));
 
@@ -83,7 +112,7 @@ async fn main() -> anyhow::Result<()> {
                         question: market.question.clone(),
                         description: market.description.clone(),
                         event_slug,
-                        series_slug: series_slug.clone(),
+                        series_slug: Some(series_slug.clone()),
                         asset_symbol,
                         interval,
                         outcomes: outcomes_vec.clone(),
@@ -136,7 +165,10 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let _ = shutdown_tx.send(true);
-    let _ = ws_handle.await;
-    Ok(())
+    #[allow(unreachable_code)]
+    {
+        let _ = shutdown_tx.send(true);
+        let _ = _ws_handle.await;
+        Ok(())
+    }
 }
