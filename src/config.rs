@@ -1,30 +1,34 @@
-use anyhow::{Context, Result};
 use std::env;
 
 #[derive(Debug, Clone)]
 pub struct Config {
     pub database_url: String,
-    pub poll_interval_secs: u64,
-    pub ws_reconnect_secs: u64,
+    pub gamma_api_url: String,
+    pub scan_interval_secs: u64,
+    pub lookahead_hours_5m: u32,
+    pub lookahead_hours_15m: u32,
+    pub lookahead_hours_1h: u32,
+    pub lookahead_hours_4h: u32,
+    pub api_delay_ms: u64,
 }
 
 impl Config {
-    pub fn from_env() -> Result<Self> {
-        dotenvy::dotenv().ok();
-        let database_url = env::var("DATABASE_URL")
-            .context("DATABASE_URL must be set in environment or .env file")?;
-        let poll_interval_secs = env::var("POLL_INTERVAL_SECS")
-            .unwrap_or_else(|_| "30".to_string())
-            .parse()
-            .context("POLL_INTERVAL_SECS must be a valid integer")?;
-        let ws_reconnect_secs = env::var("WS_RECONNECT_SECS")
-            .unwrap_or_else(|_| "5".to_string())
-            .parse()
-            .context("WS_RECONNECT_SECS must be a valid integer")?;
-        Ok(Config {
-            database_url,
-            poll_interval_secs,
-            ws_reconnect_secs,
+    pub fn from_env() -> anyhow::Result<Self> {
+        Ok(Self {
+            database_url: env::var("DATABASE_URL")
+                .unwrap_or_else(|_| "postgres://user:password@localhost:5432/polymarket".into()),
+            gamma_api_url: env::var("GAMMA_API_URL")
+                .unwrap_or_else(|_| "https://gamma-api.polymarket.com".into()),
+            scan_interval_secs: parse_env("SCAN_INTERVAL_SECS", 120),
+            lookahead_hours_5m: parse_env("LOOKAHEAD_HOURS_5M", 6),
+            lookahead_hours_15m: parse_env("LOOKAHEAD_HOURS_15M", 12),
+            lookahead_hours_1h: parse_env("LOOKAHEAD_HOURS_1H", 24),
+            lookahead_hours_4h: parse_env("LOOKAHEAD_HOURS_4H", 72),
+            api_delay_ms: parse_env("API_DELAY_MS", 150),
         })
     }
+}
+
+fn parse_env<T: std::str::FromStr>(key: &str, default: T) -> T {
+    env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
 }

@@ -1,17 +1,11 @@
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  scanner:
+    build: .
+    container_name: polymarket-scanner
     restart: unless-stopped
     env_file:
       - .env
-    networks:
-      - default
-      - supabase-net
-
-networks:
-  supabase-net:
-    external: true
-    name: btlyefmo9beepazzx2jt10dz
-
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
