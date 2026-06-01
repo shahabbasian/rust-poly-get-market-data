@@ -38,15 +38,18 @@ impl GammaClient {
     }
 }
 
-pub fn parse_clob_token_ids(raw: Option<&Vec<String>>) -> crate::models::ClobTokenIds {
-    let parts = match raw {
-        Some(v) => v.as_slice(),
-        None => return crate::models::ClobTokenIds::default(),
+pub fn parse_clob_token_ids(raw: Option<&String>) -> crate::models::ClobTokenIds {
+    let Some(s) = raw else {
+        return crate::models::ClobTokenIds::default();
+    };
+    let parsed: Vec<String> = match serde_json::from_str(s) {
+        Ok(v) => v,
+        Err(_) => return crate::models::ClobTokenIds::default(),
     };
 
     crate::models::ClobTokenIds {
-        yes: parts.first().cloned(),
-        no: parts.get(1).cloned(),
+        yes: parsed.first().cloned(),
+        no: parsed.get(1).cloned(),
     }
 }
 
