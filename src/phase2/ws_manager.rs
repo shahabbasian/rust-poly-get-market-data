@@ -119,6 +119,10 @@ async fn connect_and_stream(
 
     // Also refresh watch list every 30s
     let mut refresh_timer = interval(Duration::from_secs(30));
+    // Consume the first immediate tick so the first real tick is 30s away.
+    // Otherwise the timer fires immediately and breaks the loop before any
+    // WebSocket message can be read.
+    refresh_timer.tick().await;
 
     loop {
         tokio::select! {
