@@ -61,6 +61,10 @@ pub async fn run_scan(
                     volume_num: market.volume_num,
                     created_at: now,
                     updated_at: now,
+                    status: None,
+                    winning_outcome: None,
+                    price_to_beat: None,
+                    last_book_hash: None,
                 };
 
                 if let Err(e) = upsert_market(pool, &record).await {

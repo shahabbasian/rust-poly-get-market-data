@@ -30,6 +30,10 @@ pub struct MarketRecord {
     pub volume_num: Option<f64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub status: Option<String>,
+    pub winning_outcome: Option<String>,
+    pub price_to_beat: Option<f64>,
+    pub last_book_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

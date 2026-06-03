@@ -17,3 +17,5 @@ chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 dotenvy = "0.15"
 uuid = { version = "1", features = ["v4", "serde"] }
+polymarket_client_sdk_v2 = { version = "0.5", features = ["ws", "clob"] }
+futures = "0.3"
