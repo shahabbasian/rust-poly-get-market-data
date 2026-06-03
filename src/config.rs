@@ -10,17 +10,13 @@ pub struct Config {
     pub lookahead_hours_1h: u32,
     pub lookahead_hours_4h: u32,
     pub api_delay_ms: u64,
-
-    pub ws_market_host: String,
-    pub rtds_host: String,
-    pub scheduler_poll_ms: u64,
-    pub subscribe_lead_secs: i64,
-    pub batch_flush_ms: u64,
-    pub batch_max_rows: usize,
-    pub strike_window_secs: i64,
-    pub teardown_grace_secs: i64,
-    pub sampler_poll_ms: u64,
-    pub sampler_lead_secs: i64,
+    pub ws_reconnect_delay_secs: u64,
+    pub lifecycle_interval_secs: u64,
+    pub watch_ahead_secs: u64,
+    pub orderbook_buffer_size: usize,
+    pub batch_insert_size: usize,
+    pub batch_flush_interval_ms: u64,
+    pub resolution_poll_interval_secs: u64,
 }
 
 impl Config {
@@ -36,19 +32,13 @@ impl Config {
             lookahead_hours_1h: parse_env("LOOKAHEAD_HOURS_1H", 24),
             lookahead_hours_4h: parse_env("LOOKAHEAD_HOURS_4H", 72),
             api_delay_ms: parse_env("API_DELAY_MS", 150),
-
-            ws_market_host: env::var("WS_MARKET_HOST")
-                .unwrap_or_else(|_| "wss://ws-subscriptions-clob.polymarket.com".into()),
-            rtds_host: env::var("RTDS_HOST")
-                .unwrap_or_else(|_| "wss://ws-live-data.polymarket.com".into()),
-            scheduler_poll_ms: parse_env("SCHEDULER_POLL_MS", 1000),
-            subscribe_lead_secs: parse_env("SUBSCRIBE_LEAD_SECS", 5),
-            batch_flush_ms: parse_env("BATCH_FLUSH_MS", 250),
-            batch_max_rows: parse_env("BATCH_MAX_ROWS", 1000usize),
-            strike_window_secs: parse_env("STRIKE_WINDOW_SECS", 2),
-            teardown_grace_secs: parse_env("TEARDOWN_GRACE_SECS", 30),
-            sampler_poll_ms: parse_env("SAMPLER_POLL_MS", 1000),
-            sampler_lead_secs: parse_env("SAMPLER_LEAD_SECS", 5),
+            ws_reconnect_delay_secs: parse_env("WS_RECONNECT_DELAY_SECS", 5),
+            lifecycle_interval_secs: parse_env("LIFECYCLE_INTERVAL_SECS", 5),
+            watch_ahead_secs: parse_env("WATCH_AHEAD_SECS", 60),
+            orderbook_buffer_size: parse_env("ORDERBOOK_BUFFER_SIZE", 10000),
+            batch_insert_size: parse_env("BATCH_INSERT_SIZE", 500),
+            batch_flush_interval_ms: parse_env("BATCH_FLUSH_INTERVAL_MS", 500),
+            resolution_poll_interval_secs: parse_env("RESOLUTION_POLL_INTERVAL_SECS", 60),
         })
     }
 }

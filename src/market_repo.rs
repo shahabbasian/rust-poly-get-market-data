@@ -11,13 +11,15 @@ pub async fn upsert_market(pool: &PgPool, record: &MarketRecord) -> anyhow::Resu
             question, slug, outcomes, start_date, end_date, gamma_market_id,
             enable_order_book, accepting_orders, ready, funded,
             order_min_size, order_price_min_tick_size, best_bid, best_ask,
-            last_trade_price, volume_clob, volume_num, created_at, updated_at
+            last_trade_price, volume_clob, volume_num, created_at, updated_at,
+            status, winning_outcome, price_to_beat, last_book_hash
         ) VALUES (
             $1, $2, $3, $4, $5, $6,
             $7, $8, $9, $10, $11, $12,
             $13, $14, $15, $16,
             $17, $18, $19, $20,
-            $21, $22, $23, $24, $25
+            $21, $22, $23, $24, $25,
+            $26, $27, $28, $29
         )
         ON CONFLICT ON CONSTRAINT unique_new_token_id_yes DO UPDATE SET
             condition_id = EXCLUDED.condition_id,
@@ -67,6 +69,10 @@ pub async fn upsert_market(pool: &PgPool, record: &MarketRecord) -> anyhow::Resu
     .bind(record.volume_num)
     .bind(record.created_at)
     .bind(record.updated_at)
+    .bind(&record.status)
+    .bind(&record.winning_outcome)
+    .bind(record.price_to_beat)
+    .bind(&record.last_book_hash)
     .execute(pool)
     .await?;
 
