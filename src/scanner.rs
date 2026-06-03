@@ -92,15 +92,9 @@ pub async fn run_scan(
         tokio::time::sleep(std::time::Duration::from_millis(config.api_delay_ms)).await;
     }
 
-    let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM new_markets")
-        .fetch_one(pool)
-        .await
-        .unwrap_or(0);
-
     info!(
         discovered,
         not_found,
-        total_markets = total,
         "Scan completed"
     );
 

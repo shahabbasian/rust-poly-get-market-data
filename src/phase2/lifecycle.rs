@@ -2,9 +2,27 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use tracing::{debug, info, warn};
 
-use crate::models::MarketRecord;
-
 use super::orderbook_repo::{set_price_to_beat, transition_status};
+
+/// Lightweight struct for lifecycle queries.
+/// Avoids pulling heavy columns like `outcomes` (JSONB) from the DB.
+#[derive(Debug, sqlx::FromRow)]
+pub struct MarketLite {
+    pub token_id_yes: String,
+    pub token_id_no: String,
+    pub condition_id: String,
+    pub symbol: String,
+    pub status: Option<String>,
+    pub start_date: Option<DateTime<Utc>>,
+    pub end_date: Option<DateTime<Utc>>,
+    pub price_to_beat: Option<f64>,
+}
+
+impl MarketLite {
+    fn status_str(&self) -> &str {
+        self.status.as_deref().unwrap_or("upcoming")
+    }
+}
 
 pub async fn refresh_all(pool: PgPool) -> anyhow::Result<()> {
     let now = Utc::now();
@@ -15,10 +33,12 @@ pub async fn refresh_all(pool: PgPool) -> anyhow::Result<()> {
             .unwrap_or(60),
     );
 
-    // Fetch all markets that are not completed
-    let rows = sqlx::query_as::<_, MarketRecord>(
+    // Fetch only the columns we need
+    let rows = sqlx::query_as::<_, MarketLite>(
         r#"
-        SELECT * FROM new_markets
+        SELECT token_id_yes, token_id_no, condition_id, symbol,
+               status, start_date, end_date, price_to_beat
+        FROM new_markets
         WHERE status IN ('upcoming', 'active')
            OR status IS NULL
         ORDER BY start_date ASC
@@ -27,10 +47,10 @@ pub async fn refresh_all(pool: PgPool) -> anyhow::Result<()> {
     .fetch_all(&pool)
     .await?;
 
-    let mut watch_list: Vec<MarketRecord> = Vec::new();
+    let mut watch_list: Vec<MarketLite> = Vec::new();
 
     for mut market in rows {
-        let current = market.status.as_deref().unwrap_or("upcoming");
+        let current = market.status_str();
         let start = market.start_date;
         let end = market.end_date;
 
@@ -113,7 +133,6 @@ pub async fn refresh_all(pool: PgPool) -> anyhow::Result<()> {
     }
 
     // Also include any recently completed markets still without winning_outcome
-    // so that ws_manager fallback polling can check them
     let _ = check_completed_resolution(&pool).await;
 
     debug!(watch_count = watch_list.len(), "Lifecycle refresh done");
@@ -161,13 +180,15 @@ async fn compute_price_to_beat(
     row.map(|r| r.0)
 }
 
-pub async fn get_watch_list(pool: &PgPool, ahead_secs: i64) -> anyhow::Result<Vec<MarketRecord>> {
+pub async fn get_watch_list(pool: &PgPool, ahead_secs: i64) -> anyhow::Result<Vec<MarketLite>> {
     let now = Utc::now();
     let ahead = chrono::Duration::seconds(ahead_secs);
 
-    let rows = sqlx::query_as::<_, MarketRecord>(
+    let rows = sqlx::query_as::<_, MarketLite>(
         r#"
-        SELECT * FROM new_markets
+        SELECT token_id_yes, token_id_no, condition_id, symbol,
+               status, start_date, end_date, price_to_beat
+        FROM new_markets
         WHERE status = 'active'
            OR (status = 'upcoming' AND start_date IS NOT NULL AND start_date <= $1)
         ORDER BY start_date ASC
@@ -181,9 +202,9 @@ pub async fn get_watch_list(pool: &PgPool, ahead_secs: i64) -> anyhow::Result<Ve
 }
 
 async fn check_completed_resolution(pool: &PgPool) -> anyhow::Result<()> {
-    let rows = sqlx::query_as::<_, MarketRecord>(
+    let rows: Vec<(String,)> = sqlx::query_as(
         r#"
-        SELECT * FROM new_markets
+        SELECT slug FROM new_markets
         WHERE status = 'completed'
           AND winning_outcome IS NULL
           AND end_date IS NOT NULL
@@ -193,13 +214,9 @@ async fn check_completed_resolution(pool: &PgPool) -> anyhow::Result<()> {
     .fetch_all(pool)
     .await?;
 
-    for market in rows {
-        // Fallback: try to fetch resolution from Gamma API
-        // Phase1 scanner already updates some fields; here we just log for now
-        // because actual resolution detection is the responsibility of
-        // the ws_manager / event_handler or a dedicated poller.
+    for (slug,) in rows {
         debug!(
-            slug = %market.slug,
+            slug = %slug,
             "Completed market awaiting resolution outcome"
         );
     }
