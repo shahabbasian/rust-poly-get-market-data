@@ -2,7 +2,7 @@
 name = "polymarket-scanner"
 version = "0.1.0"
 edition = "2021"
-description = "Phase 1: Polymarket upcoming market token ID scanner for crypto Up/Down markets"
+description = "Phase 1+2: Polymarket upcoming market token ID scanner with real-time orderbook collection"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -17,3 +17,6 @@ chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 dotenvy = "0.15"
 uuid = { version = "1", features = ["v4", "serde"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+futures = "0.3"

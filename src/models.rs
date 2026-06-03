@@ -28,6 +28,10 @@ pub struct MarketRecord {
     pub last_trade_price: Option<f64>,
     pub volume_clob: Option<f64>,
     pub volume_num: Option<f64>,
+    pub status: Option<String>,
+    pub winning_outcome: Option<String>,
+    pub price_to_beat: Option<f64>,
+    pub last_book_hash: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

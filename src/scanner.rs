@@ -59,6 +59,10 @@ pub async fn run_scan(
                     last_trade_price: market.last_trade_price,
                     volume_clob: market.volume_clob,
                     volume_num: market.volume_num,
+                    status: None,
+                    winning_outcome: None,
+                    price_to_beat: None,
+                    last_book_hash: None,
                     created_at: now,
                     updated_at: now,
                 };
